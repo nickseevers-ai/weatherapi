@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ASOS LIVE — Settlement Monitor</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&display=swap');
+
+:root {
+  --bg:        #080a0d;
+  --card:      #0e1117;
+  --card-hi:   #141820;
+  --border:    #1c2330;
+  --border-hi: #2a3444;
+  --txt:       #b8c4d4;
+  --txt-dim:   #5a6577;
+  --txt-hi:    #dce4ee;
+  --green:     #3fb950;
+  --green-bg:  #0d2818;
+  --red:       #f85149;
+  --red-bg:    #2d1015;
+  --amber:     #d29922;
+  --amber-bg:  #2d2310;
+  --cyan:      #58a6ff;
+  --cyan-bg:   #0c1e36;
+  --purple:    #bc8cff;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--txt);
+  font-family: 'IBM Plex Mono', 'Courier New', monospace;
+  font-size: 12px;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── TOP BAR ────────────────────────────────────────── */
+.topbar {
+  background: var(--card);
+  border-bottom: 1px solid var(--border);
+  padding: 8px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+.topbar-left { display: flex; align-items: center; gap: 12px; }
+.logo {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--txt-hi);
+  letter-spacing: 3px;
+}
+.logo em { color: var(--cyan); font-style: normal; }
+.heartbeat {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 5px var(--green);
+  animation: hb 2s ease-in-out infinite;
+}
+@keyframes hb { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  font-size: 11px;
+  color: var(--txt-dim);
+}
+.topbar-right .clock { color: var(--txt); font-weight: 500; font-size: 12px; }
+.topbar-right .sync { }
+.topbar-right .sync span { color: var(--txt); }
+
+/* ── GRID ──────────────────────────────────────────── */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(272px, 1fr));
+  gap: 8px;
+  padding: 12px 16px;
+  max-width: 1520px;
+  margin: 0 auto;
+}
+
+/* ── CARD ──────────────────────────────────────────── */
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  overflow: hidden;
+  transition: border-color .25s;
+}
+.card:hover { border-color: var(--border-hi); }
+
+/* Kill-switch highlight states */
+.card.ks-shift  { border-color: var(--amber); }
+.card.ks-regime { border-color: var(--red); }
+
+/* Flag banner at top of card */
+.ks-banner {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .6px;
+  text-transform: uppercase;
+  padding: 3px 12px;
+  display: none;
+}
+.ks-banner.shift  { display:block; background: var(--amber-bg); color: var(--amber); }
+.ks-banner.regime { display:block; background: var(--red-bg);   color: var(--red); }
+
+/* Header row: station ID + city + obs time */
+.card-hdr {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 12px 4px;
+}
+.card-hdr-l { display:flex; align-items:center; gap:8px; }
+.sid { font-weight:600; font-size:13px; color:var(--txt-hi); letter-spacing:.8px; }
+.city { font-size:10px; color:var(--txt-dim); }
+.obs-time { font-size:10px; color:var(--txt-dim); }
+
+/* Body */
+.card-body { padding: 2px 12px 10px; }
+
+/* ── BIG TEMP + PRECISION BADGE ── */
+.temp-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.temp-big {
+  font-size: 34px;
+  font-weight: 300;
+  color: var(--txt-hi);
+  letter-spacing: -1px;
+  line-height: 1.1;
+}
+.temp-big .u { font-size:15px; color:var(--txt-dim); font-weight:400; margin-left:1px; }
+
+/* T-group badge */
+.tg-badge {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--cyan);
+  background: var(--cyan-bg);
+  padding: 2px 7px;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+.tg-badge.stale { color:var(--txt-dim); background:var(--card-hi); }
+.tg-badge .lbl { font-size:9px; font-weight:400; opacity:.6; margin-right:2px; }
+
+/* ── STAT GRID ── */
+.stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5px 14px;
+}
+.stat { display:flex; flex-direction:column; }
+.stat-l { font-size:9px; color:var(--txt-dim); text-transform:uppercase; letter-spacing:.7px; margin-bottom:1px; }
+.stat-v { font-size:12px; color:var(--txt); font-weight:500; }
+
+/* Wind arrow */
+.wind-arrow {
+  display:inline-block;
+  font-size:13px;
+  margin-right:3px;
+  transition: transform .35s ease;
+}
+
+/* ── DIVIDER ── */
+.divider { border-top:1px solid var(--border); margin: 7px 0; }
+
+/* ── DAILY HIGH ROW ── */
+.dhi-row {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+}
+.dhi-row .dhi-l { font-size:9px; color:var(--txt-dim); text-transform:uppercase; letter-spacing:.7px; }
+.dhi-row .dhi-v { font-size:13px; font-weight:600; color:var(--green); }
+.dhi-row .dhi-t { font-size:10px; color:var(--txt-dim); margin-left:6px; }
+
+/* ── UPSTREAM ROW ── */
+.upstream-row {
+  margin-top:5px;
+  padding: 4px 7px;
+  background: var(--card-hi);
+  border-radius: 3px;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  font-size:11px;
+}
+.upstream-row .up-l { color:var(--txt-dim); font-size:9px; text-transform:uppercase; letter-spacing:.6px; }
+.upstream-row .up-v { color:var(--purple); font-weight:500; }
+
+/* ── WIND HISTORY STRIP ── */
+.wh-strip {
+  display:flex;
+  gap:2px;
+  margin-top:6px;
+  align-items:flex-end;
+  height:18px;
+}
+.wh-pip {
+  flex:1;
+  max-width:24px;
+  height:100%;
+  background:var(--card-hi);
+  border-radius:2px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:8px;
+  color:var(--txt-dim);
+  transition: background .2s;
+}
+.wh-pip.now { background:var(--cyan-bg); color:var(--cyan); }
+
+/* ── LOADING ── */
+.loader {
+  position:fixed; inset:0;
+  background:var(--bg);
+  display:flex; flex-direction:column;
+  align-items:center; justify-content:center;
+  gap:14px; z-index:999;
+}
+.loader .logo { font-size:20px; }
+.spin {
+  width:28px; height:28px;
+  border:2px solid var(--border);
+  border-top-color:var(--cyan);
+  border-radius:50%;
+  animation:spin .6s linear infinite;
+}
+@keyframes spin { to{transform:rotate(360deg)} }
+.loader p { color:var(--txt-dim); font-size:11px; }
+
+/* ── FOOTER ── */
+.footer {
+  text-align:center;
+  padding:14px;
+  font-size:10px;
+  color:var(--txt-dim);
+  border-top:1px solid var(--border);
+  margin-top:4px;
+}
+.footer a { color:var(--cyan); text-decoration:none; }
+</style>
+</head>
+<body>
+
+<div class="loader" id="loader">
+  <div class="logo">ASOS<em>LIVE</em></div>
+  <div class="spin"></div>
+  <p id="loader-msg">Connecting to settlement airports…</p>
+</div>
+
+<div class="topbar">
+  <div class="topbar-left">
+    <div class="logo">ASOS<em>LIVE</em></div>
+    <div class="heartbeat" id="hb"></div>
+  </div>
+  <div class="topbar-right">
+    <span class="sync">Sync: <span id="syncT">—</span></span>
+    <span class="clock" id="clock"></span>
+  </div>
+</div>
+
+<div class="grid" id="grid"></div>
+
+<div class="footer">
+  Source: <a href="https://api.weather.gov" target="_blank">api.weather.gov</a> &nbsp;·&nbsp;
+  5-min AUTO obs + hourly T-group precision &nbsp;·&nbsp;
+  Kill-switch detection via wind trend &nbsp;·&nbsp;
+  Upstream: KILG→PHL, KPAE→SEA
+</div>
+
+<script>
+// ─── CLOCK ──────────────────────────────────────────
+(function tickClock(){
+  document.getElementById("clock").textContent =
+    new Date().toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit",second:"2-digit",hour12:true});
+  setTimeout(tickClock, 1000);
+})();
+
+// ─── HELPERS ────────────────────────────────────────
+function minAgo(iso){
+  if(!iso) return 999;
+  return Math.round((Date.now() - new Date(iso).getTime())/60000);
+}
+
+function compassArrow(deg){
+  // Arrow points in the direction the wind is COMING FROM
+  // 0° (N) = arrow points up (0deg rotation), 90° (E) = 90deg, etc.
+  if(deg === null || deg === undefined) return {style:""};
+  return {style:`transform:rotate(${deg}deg)`};
+}
+
+// ─── RENDER ONE CARD ────────────────────────────────
+function renderCard(id, d){
+  const wt = d.wind_trend || {};
+  const tg = d.tgroup    || {};
+  const hasShift  = wt.shift_detected;
+  const hasRegime = wt.regime_change;
+
+  // Card class
+  let cls = "card";
+  if(hasRegime) cls += " ks-regime";
+  else if(hasShift) cls += " ks-shift";
+
+  // Banner
+  let banner = "";
+  if(hasRegime) banner = `<div class="ks-banner regime">⚡ regime change — verify kill-switch</div>`;
+  else if(hasShift) banner = `<div class="ks-banner shift">⚠ wind shift ≥40° — monitor</div>`;
+
+  // T-group badge
+  let tgBadge = "";
+  if(tg.temp_f != null){
+    const stale = tg.time_utc ? minAgo(tg.time_utc) > 70 : true;
+    tgBadge = `<span class="tg-badge${stale?" stale":""}" title="T-group @ ${tg.time_local||"?"}">`+
+              `<span class="lbl">exact</span>${tg.temp_f}°F</span>`;
+  }
+
+  // RH color
+  let rhCol = "var(--txt)";
+  if(d.rh != null){
+    if(d.rh < 20)  rhCol = "var(--green)";
+    else if(d.rh > 70) rhCol = "var(--red)";
+    else rhCol = "var(--amber)";
+  }
+
+  // Daily high
+  let dhi = "";
+  if(d.daily_max_f != null){
+    dhi = `<div class="divider"></div>
+           <div class="dhi-row">
+             <span class="dhi-l">Today Hi</span>
+             <span><span class="dhi-v">${d.daily_max_f}°F</span><span class="dhi-t">${d.daily_max_time||""}</span></span>
+           </div>`;
+  }
+
+  // Upstream row
+  let upRow = "";
+  if(d.upstream){
+    const up = d.upstream;
+    upRow = `<div class="upstream-row">
+               <span class="up-l">↑ upstream ${up.station}</span>
+               <span class="up-v">${up.sector} @ ${up.wind_mph} mph</span>
+             </div>`;
+  }
+
+  // Wind arrow
+  const arrow = compassArrow(d.wind_dir);
+
+  return `<div class="${cls}">
+    ${banner}
+    <div class="card-hdr">
+      <div class="card-hdr-l">
+        <span class="sid">${id}</span>
+        <span class="city">${d.city}</span>
+      </div>
+      <span class="obs-time">${d.obs_time_local||"—"}</span>
+    </div>
+    <div class="card-body">
+      <div class="temp-row">
+        <div class="temp-big">${d.temp_f != null ? d.temp_f : "—"}<span class="u">°F</span></div>
+        ${tgBadge}
+      </div>
+      <div class="stats">
+        <div class="stat">
+          <span class="stat-l">Wind</span>
+          <span class="stat-v">
+            <span class="wind-arrow" ${arrow.style ? `style="${arrow.style}"` : ""}>↑</span>
+            ${d.wind_sector} @ ${d.wind_mph != null ? d.wind_mph : "—"} mph
+          </span>
+        </div>
+        <div class="stat">
+          <span class="stat-l">Dew</span>
+          <span class="stat-v">${d.dew_f != null ? d.dew_f+"°F" : "—"}</span>
+        </div>
+        <div class="stat">
+          <span class="stat-l">RH</span>
+          <span class="stat-v" style="color:${rhCol}">${d.rh != null ? Math.round(d.rh)+"%" : "—"}</span>
+        </div>
+        <div class="stat">
+          <span class="stat-l">Pressure</span>
+          <span class="stat-v">${d.baro_mb != null ? d.baro_mb+" mb" : "—"}</span>
+        </div>
+      </div>
+      <div class="stats" style="margin-top:5px">
+        <div class="stat">
+          <span class="stat-l">Sky</span>
+          <span class="stat-v">${d.sky||"—"}</span>
+        </div>
+        <div class="stat">
+          <span class="stat-l">Wind trend</span>
+          <span class="stat-v" style="color:${hasRegime?"var(--red)":hasShift?"var(--amber)":"var(--txt-dim)"}">
+            ${hasRegime ? "⚡ regime" : hasShift ? "⚠ shifting" : "steady"}
+          </span>
+        </div>
+      </div>
+      ${upRow}
+      ${dhi}
+    </div>
+  </div>`;
+}
+
+// ─── FETCH & PAINT ──────────────────────────────────
+async function refresh(){
+  try {
+    const r = await fetch("/api/snapshot");
+    if(!r.ok) throw new Error("HTTP "+r.status);
+    const data = await r.json();
+
+    // Kill loader
+    const ld = document.getElementById("loader");
+    if(ld) ld.style.display="none";
+
+    // Sync time
+    document.getElementById("syncT").textContent =
+      new Date().toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit",second:"2-digit",hour12:true});
+
+    // Render
+    let html = "";
+    for(const [id,d] of Object.entries(data.stations)){
+      html += renderCard(id, d);
+    }
+    document.getElementById("grid").innerHTML = html;
+
+  } catch(e){
+    console.error(e);
+    const ld = document.getElementById("loader");
+    if(ld && ld.style.display !== "none"){
+      document.getElementById("loader-msg").textContent = "Connection error — retrying…";
+    }
+  }
+}
+
+refresh();
+setInterval(refresh, 30000);  // 30s dashboard refresh
+</script>
+</body>
+</html>
