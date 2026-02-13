@@ -28,27 +28,37 @@ app = Flask(__name__, static_folder="static")
 STATIONS = {
     "KLAX": {"city": "Los Angeles",   "tz": "America/Los_Angeles", "upstream": None,   "lat": 33.94, "lon": -118.41, "wfo": "LOX"},
     "KLAS": {"city": "Las Vegas",     "tz": "America/Los_Angeles", "upstream": None,   "lat": 36.08, "lon": -115.15, "wfo": "VEF"},
+    "KPHX": {"city": "Phoenix",       "tz": "America/Phoenix",     "upstream": None,   "lat": 33.43, "lon": -112.01, "wfo": "PSR"},
     "KSFO": {"city": "San Francisco", "tz": "America/Los_Angeles", "upstream": None,   "lat": 37.62, "lon": -122.37, "wfo": "MTR"},
     "KSEA": {"city": "Seattle",       "tz": "America/Los_Angeles", "upstream": "KPAE", "lat": 47.45, "lon": -122.30, "wfo": "SEW"},
     "KAUS": {"city": "Austin",        "tz": "America/Chicago",     "upstream": None,   "lat": 30.19, "lon": -97.66,  "wfo": "EWX"},
+    "KDFW": {"city": "Dallas",        "tz": "America/Chicago",     "upstream": None,   "lat": 32.89, "lon": -97.04,  "wfo": "FWD"},
+    "KHOU": {"city": "Houston",       "tz": "America/Chicago",     "upstream": None,   "lat": 29.64, "lon": -95.27,  "wfo": "HGX"},
+    "KSAT": {"city": "San Antonio",   "tz": "America/Chicago",     "upstream": None,   "lat": 29.53, "lon": -98.46,  "wfo": "EWX"},
+    "KOKC": {"city": "Oklahoma City", "tz": "America/Chicago",     "upstream": None,   "lat": 35.39, "lon": -97.60,  "wfo": "OUN"},
     "KDEN": {"city": "Denver",        "tz": "America/Denver",      "upstream": None,   "lat": 39.86, "lon": -104.67, "wfo": "BOU"},
+    "KBOS": {"city": "Boston",        "tz": "America/New_York",    "upstream": None,   "lat": 42.36, "lon": -71.00,  "wfo": "BOX"},
     "KNYC": {"city": "New York",      "tz": "America/New_York",    "upstream": None,   "lat": 40.78, "lon": -73.97,  "wfo": "OKX"},
     "KPHL": {"city": "Philadelphia",  "tz": "America/New_York",    "upstream": "KILG", "lat": 39.87, "lon": -75.24,  "wfo": "PHI"},
     "KDCA": {"city": "Washington DC", "tz": "America/New_York",    "upstream": None,   "lat": 38.85, "lon": -77.04,  "wfo": "LWX"},
     "KMDW": {"city": "Chicago",       "tz": "America/Chicago",     "upstream": None,   "lat": 41.78, "lon": -87.75,  "wfo": "LOT"},
+    "KMSP": {"city": "Minneapolis",   "tz": "America/Chicago",     "upstream": None,   "lat": 44.88, "lon": -93.22,  "wfo": "MPX"},
     "KMSY": {"city": "New Orleans",   "tz": "America/Chicago",     "upstream": None,   "lat": 29.99, "lon": -90.25,  "wfo": "LIX"},
+    "KATL": {"city": "Atlanta",       "tz": "America/New_York",    "upstream": None,   "lat": 33.64, "lon": -84.43,  "wfo": "FFC"},
     "KMIA": {"city": "Miami",         "tz": "America/New_York",    "upstream": None,   "lat": 25.79, "lon": -80.29,  "wfo": "MFL"},
 }
 
 # Canonical card order (matches notebook stations dict) — frontend iterates this
-CARD_ORDER = ["KLAX","KLAS","KSFO","KSEA","KAUS","KDEN","KNYC","KPHL","KDCA","KMDW","KMSY","KMIA"]
+CARD_ORDER = ["KLAX","KLAS","KPHX","KSFO","KSEA","KAUS","KDFW","KHOU","KSAT","KOKC","KDEN","KBOS","KNYC","KPHL","KDCA","KMDW","KMSP","KMSY","KATL","KMIA"]
 
 # ─── KALSHI TICKER PREFIXES ──────────────────────────────────────────────────
 KALSHI_PREFIXES = {
-    "KLAX": "KXHIGHLAX",  "KLAS": "KXHIGHTLV",  "KSFO": "KXHIGHTSFO",
-    "KSEA": "KXHIGHTSEA", "KAUS": "KXHIGHAUS",  "KDEN": "KXHIGHDEN",
-    "KNYC": "KXHIGHNY",   "KPHL": "KXHIGHPHIL", "KDCA": "KXHIGHTDC",
-    "KMDW": "KXHIGHCHI",  "KMSY": "KXHIGHTNOLA","KMIA": "KXHIGHMIA",
+    "KLAX": "KXHIGHLAX",  "KLAS": "KXHIGHTLV",  "KPHX": "KXHIGHTPHX",
+    "KSFO": "KXHIGHTSFO", "KSEA": "KXHIGHTSEA", "KAUS": "KXHIGHAUS",
+    "KDEN": "KXHIGHDEN",  "KBOS": "KXHIGHTBOS", "KNYC": "KXHIGHNY",
+    "KPHL": "KXHIGHPHIL", "KDCA": "KXHIGHTDC",  "KMDW": "KXHIGHCHI",
+    "KMSP": "KXHIGHTMIN", "KMSY": "KXHIGHTNOLA","KATL": "KXHIGHTATL",
+    "KMIA": "KXHIGHMIA",
 }
 
 # ─── ON-DEMAND CACHES (TTL-based, avoid hammering external APIs) ─────────────
