@@ -48,7 +48,7 @@ STATIONS = {
     "KMIA": {"city": "Miami",         "tz": "America/New_York",    "upstream": None,   "lat": 25.79, "lon": -80.29,  "wfo": "MFL"},
 }
 
-# Canonical card order (matches notebook stations dict) — frontend iterates this
+# Canonical card order
 CARD_ORDER = ["KLAX","KLAS","KPHX","KSFO","KSEA","KAUS","KDFW","KHOU","KSAT","KOKC","KDEN","KBOS","KNYC","KPHL","KDCA","KMDW","KMSP","KMSY","KATL","KMIA"]
 
 # ─── KALSHI TICKER PREFIXES ──────────────────────────────────────────────────
@@ -62,7 +62,7 @@ KALSHI_PREFIXES = {
     "KATL": "KXHIGHTATL",  "KMIA": "KXHIGHMIA",
 }
 
-# ─── ON-DEMAND CACHES (TTL-based, avoid hammering external APIs) ─────────────
+# ─── ON-DEMAND CACHES (TTL-based) ────────────────────────────────────────────
 _scan_cache   = {"data": None, "ts": 0}   # unified scan  — 15 min TTL
 _afd_cache    = {"data": {},   "ts": 0}   # AFD text      — 30 min TTL
 _kalshi_cache = {"data": None, "ts": 0}   # Kalshi prices — 5 min TTL
@@ -334,6 +334,151 @@ def get_upstream_wind(station_id: str) -> dict | None:
         "ts":       up_latest["timestamp_utc"],
     }
 
+# ─── FORECAST LOGIC SIGNALS ──────────────────────────────────────────────────
+
+def get_forecast_signals(sid, obs):
+    """
+    Checks Forecaster Logic rules and returns a list of active signals.
+    Returns list of dicts: {"label": "TEXT", "type": "bullish|bearish|neutral"}
+    """
+    if not obs or obs.get("wind_dir") is None:
+        return []
+
+    w_dir = obs["wind_dir"]
+    w_spd = obs["wind_mph"] or 0
+    dew = obs["dew_f"]
+    signals = []
+
+    # Helper for wind ranges
+    def wind_in(start, end):
+        if start < end: return start <= w_dir <= end
+        return start <= w_dir or w_dir <= end  # Crosses North
+
+    # ─── WEST COAST ─────────────────────────────────────────────
+    if sid == "KLAX":
+        if wind_in(30, 110):
+            signals.append({"label": "🔥 SANTA ANA", "type": "bullish"})
+        elif wind_in(160, 200):
+            signals.append({"label": "🛑 CATALINA EDDY", "type": "bearish"})
+        elif wind_in(210, 280):
+            signals.append({"label": "🛑 ONSHORE EXIT", "type": "bearish"})
+
+    elif sid == "KLAS":
+        if wind_in(190, 230) and w_spd >= 19:
+            signals.append({"label": "🔥 BLOWTORCH", "type": "bullish"})
+        elif wind_in(30, 70):
+            signals.append({"label": "🛑 NE STALL", "type": "bearish"})
+        if dew is not None and dew < 5:
+            signals.append({"label": "🔥 UNCAPPED (Dry)", "type": "bullish"})
+
+    elif sid == "KPHX":
+        if wind_in(70, 110):
+            signals.append({"label": "🔥 DOWNSLOPE", "type": "bullish"})
+        elif wind_in(240, 280) and w_spd > 10:
+            signals.append({"label": "🛑 GULF EXIT", "type": "bearish"})
+
+    elif sid == "KSFO":
+        if wind_in(40, 120):
+            signals.append({"label": "🔥 OFFSHORE", "type": "bullish"})
+        elif wind_in(270, 300) and w_spd > 15:
+            signals.append({"label": "🛑 GAP WIND", "type": "bearish"})
+
+    elif sid == "KSEA":
+        if wind_in(260, 280) and w_spd > 12:
+            signals.append({"label": "🔥 OLYMPIC SHADOW", "type": "bullish"})
+        elif wind_in(10, 40):
+            signals.append({"label": "❄️ FRASER COLD", "type": "bearish"})
+
+    # ─── TEXAS / SOUTH ──────────────────────────────────────────
+    elif sid == "KAUS":
+        if wind_in(260, 310) and w_spd > 12:
+            signals.append({"label": "🔥 COMPRESSION", "type": "bullish"})
+        elif wind_in(150, 190):
+            signals.append({"label": "🛑 GULF BRAKE", "type": "bearish"})
+
+    elif sid == "KDFW":
+        if wind_in(270, 315):
+            signals.append({"label": "🔥 BLOWTORCH", "type": "bullish"})
+        elif wind_in(340, 20):
+            signals.append({"label": "❄️ ARCTIC WALL", "type": "bearish"})
+
+    elif sid == "KHOU":
+        if wind_in(300, 340):
+            signals.append({"label": "🔥 CONTINENTAL", "type": "bullish"})
+        elif wind_in(120, 160):
+            signals.append({"label": "🛑 GULF CEILING", "type": "bearish"})
+
+    elif sid == "KOKC":
+        if wind_in(160, 200) and w_spd > 15:
+            signals.append({"label": "🔥 PLAINS TORCH", "type": "bullish"})
+        elif wind_in(340, 20):
+            signals.append({"label": "❄️ COLD FRONT", "type": "bearish"})
+
+    elif sid == "KMIA":
+        if wind_in(250, 290) and w_spd > 12:
+            signals.append({"label": "🔥 EVERGLADES", "type": "bullish"})
+        elif wind_in(70, 110):
+            signals.append({"label": "🛑 ATLANTIC BRAKE", "type": "bearish"})
+
+    elif sid == "KMSY":
+        if wind_in(310, 350) and w_spd > 10:
+            signals.append({"label": "🔥 COMPRESSION", "type": "bullish"})
+        elif wind_in(360, 40):
+            signals.append({"label": "🛑 LAKE BRAKE", "type": "bearish"})
+
+    # ─── MOUNTAIN / MIDWEST ─────────────────────────────────────
+    elif sid == "KDEN":
+        if wind_in(240, 290) and w_spd > 12:
+            signals.append({"label": "🔥 CHINOOK", "type": "bullish"})
+        elif wind_in(340, 40):
+            signals.append({"label": "❄️ ARCTIC WALL", "type": "bearish"})
+
+    elif sid == "KMDW":
+        if wind_in(210, 250) and w_spd > 10:
+            signals.append({"label": "🔥 S.SIDE HEAT", "type": "bullish"})
+        elif wind_in(20, 80):
+            signals.append({"label": "❄️ LAKE BREEZE", "type": "bearish"})
+
+    elif sid == "KMSP":
+        if wind_in(210, 250) and w_spd > 15:
+            signals.append({"label": "🔥 CHINOOK MIMIC", "type": "bullish"})
+        elif wind_in(340, 40):
+            signals.append({"label": "❄️ ARCTIC WALL", "type": "bearish"})
+
+    # ─── EAST COAST ─────────────────────────────────────────────
+    elif sid == "KNYC":
+        if w_spd < 5:
+            signals.append({"label": "🔥 UHI EFFECT", "type": "bullish"})
+        elif wind_in(40, 120):
+            signals.append({"label": "🛑 MARITIME TAX", "type": "bearish"})
+
+    elif sid == "KPHL":
+        if wind_in(270, 310) and w_spd > 12:
+            signals.append({"label": "🔥 APPAL. SQUEEZE", "type": "bullish"})
+        elif wind_in(90, 180):
+            signals.append({"label": "🛑 RIVER MOAT", "type": "bearish"})
+
+    elif sid == "KDCA":
+        if wind_in(280, 310) and w_spd > 12:
+            signals.append({"label": "🔥 DOWNSLOPE", "type": "bullish"})
+        elif wind_in(60, 120):
+            signals.append({"label": "🛑 ATLANTIC BRAKE", "type": "bearish"})
+
+    elif sid == "KBOS":
+        if wind_in(270, 315) and w_spd > 10:
+            signals.append({"label": "🔥 LAND BREEZE", "type": "bullish"})
+        elif wind_in(45, 135):
+            signals.append({"label": "🛑 HARBOR COOLING", "type": "bearish"})
+
+    elif sid == "KATL":
+        if wind_in(280, 320) and w_spd > 12:
+            signals.append({"label": "🔥 APPAL. SQUEEZE", "type": "bullish"})
+        elif wind_in(20, 80):
+            signals.append({"label": "🛑 COLD DAMMING", "type": "bearish"})
+
+    return signals
+
+
 # ─── FLASK ROUTES ────────────────────────────────────────────────────────────
 
 @app.route("/health")
@@ -389,6 +534,8 @@ def api_snapshot():
             "upstream":       upstream,
             # Health
             "last_polled_utc": c.get("last_polled"),
+            # Forecaster Logic Signals
+            "signals":        get_forecast_signals(sid, latest),
         }
 
     return jsonify(out)
